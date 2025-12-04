@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import PropTypes from 'prop-types';
 import LoginForm from '../components/LoginForm';
 
@@ -7,6 +7,14 @@ const LoginPage = ({ onLogin }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.state?.accessDisabled) {
+      setError('Доступ ограничен администратором');
+      navigate('/login', { replace: true, state: {} });
+    }
+  }, [location.state, navigate]);
 
   const handleSubmit = async (credentials) => {
     try {
@@ -15,7 +23,12 @@ const LoginPage = ({ onLogin }) => {
       await onLogin(credentials);
       navigate('/chats');
     } catch (err) {
-      setError(err.response?.data?.error || 'Не удалось войти');
+      const code = err.response?.data?.code;
+      if (code === 'ACCESS_DISABLED') {
+        setError('Доступ ограничен администратором');
+      } else {
+        setError(err.response?.data?.error || 'Не удалось войти');
+      }
     } finally {
       setLoading(false);
     }

@@ -129,113 +129,135 @@ const GroupManageModal = ({ isOpen, chatId, onClose, users, onUpdated, openConfi
         {error && <p className="warning">{error}</p>}
         {data && (
           <div className="modal-body-scroll">
-            <label className="field">
-              Название группы
-              <input
-                type="text"
-                className="field-input"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-              />
-            </label>
-            <button type="button" className="primary-btn" onClick={() => openConfirm(`Переименовать группу в "${title}"?`, handleRename)}>
-              Сохранить название
-            </button>
-
-            {canManage && (
-              <div className="chat-window__moderation">
-                <div className="chat-window__moderation-title">Модерация</div>
-                <div className="chat-window__moderation-row">
-                  <span>Mute:</span>
-                  <button type="button" className="secondary-btn" onClick={() => handleMutePreset(15)}>
-                    15 мин
+            <div className="group-manage-grid">
+              <div className="group-manage-column">
+                <div className="group-manage-card">
+                  <label className="field">
+                    Название группы
+                    <input
+                      type="text"
+                      className="field-input"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    onClick={() => openConfirm(`Переименовать группу в "${title}"?`, handleRename)}
+                  >
+                    Сохранить название
                   </button>
-                  <button type="button" className="secondary-btn" onClick={() => handleMutePreset(60)}>
-                    1 час
-                  </button>
-                  <button type="button" className="secondary-btn" onClick={() => handleMutePreset(null)}>
-                    Снять
-                  </button>
-                  {muteUntilText && <span className="muted">до {muteUntilText}</span>}
                 </div>
 
-                <div className="chat-window__moderation-row">
-                  <span>Лимит:</span>
-                  {[1, 2, 5].map((limit) => (
-                    <button
-                      key={`limit-${limit}`}
-                      type="button"
-                      className={`secondary-btn ${rateLimitPerMinute === limit ? 'secondary-btn--active' : ''}`}
-                      onClick={() => handleRateLimitPreset(limit)}
-                    >
-                      {limit}/мин
-                    </button>
-                  ))}
-                  <button type="button" className="secondary-btn" onClick={() => handleRateLimitPreset(null)}>
-                    Без лимита
-                  </button>
-                  {rateLimitPerMinute && <span className="muted">текущий: {rateLimitPerMinute}/мин</span>}
-                </div>
-              </div>
-            )}
+                {canManage && (
+                  <div className="group-manage-card">
+                    <div className="chat-window__moderation">
+                      <div className="chat-window__moderation-title">Модерация</div>
+                      <div className="chat-window__moderation-row">
+                        <span>Mute:</span>
+                        <button type="button" className="secondary-btn" onClick={() => handleMutePreset(15)}>
+                          15 мин
+                        </button>
+                        <button type="button" className="secondary-btn" onClick={() => handleMutePreset(60)}>
+                          1 час
+                        </button>
+                        <button type="button" className="secondary-btn" onClick={() => handleMutePreset(null)}>
+                          Снять
+                        </button>
+                        {muteUntilText && <span className="muted">до {muteUntilText}</span>}
+                      </div>
 
-            <h4>Участники</h4>
-            <div className="list-scroll">
-              {data.participants.map((participant) => {
-                const canRemove = participant.id !== data.createdBy;
-                return (
-                  <div key={participant.id} className="participant-row">
-                    <div>
-                      <div className="participant-name">{participant.displayName || participant.username}</div>
-                      <div className="participant-meta">
-                        {formatRole(participant.role)} · {participant.department || 'Отдел не указан'} · {participant.email}
+                      <div className="chat-window__moderation-row">
+                        <span>Лимит:</span>
+                        {[1, 2, 5].map((limit) => (
+                          <button
+                            key={`limit-${limit}`}
+                            type="button"
+                            className={`secondary-btn ${rateLimitPerMinute === limit ? 'secondary-btn--active' : ''}`}
+                            onClick={() => handleRateLimitPreset(limit)}
+                          >
+                            {limit}/мин
+                          </button>
+                        ))}
+                        <button type="button" className="secondary-btn" onClick={() => handleRateLimitPreset(null)}>
+                          Без лимита
+                        </button>
+                        {rateLimitPerMinute && <span className="muted">текущий: {rateLimitPerMinute}/мин</span>}
                       </div>
                     </div>
-                    {canRemove && (
-                      <button type="button" className="secondary-btn" onClick={() => handleRemove(participant)}>
-                        Удалить
-                      </button>
+                  </div>
+                )}
+
+                <div className="group-manage-card">
+                  <h4>Заявки на вступление</h4>
+                  <div className="list-scroll">
+                    {data.joinRequests?.length ? (
+                      data.joinRequests.map((req) => (
+                        <div key={req.id} className="participant-row">
+                          <div>
+                            <div className="participant-name">{req.displayName || req.username}</div>
+                            <div className="participant-meta">{formatRole(req.role)} · {req.email}</div>
+                          </div>
+                          <div className="btn-row">
+                            <button type="button" className="primary-btn" onClick={() => handleApprove(req)}>
+                              Принять
+                            </button>
+                            <button type="button" className="secondary-btn" onClick={() => handleReject(req)}>
+                              Отклонить
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="muted">Заявок нет</p>
                     )}
                   </div>
-                );
-              })}
-              {!data.participants.length && <p className="muted">Нет участников</p>}
-            </div>
+                </div>
+              </div>
 
-            <h4>Добавить участника</h4>
-            <UserPicker
-              mode="single"
-              users={users}
-              selectedIds={selectedToAdd}
-              onChange={(ids) => setSelectedToAdd(ids)}
-              excludeIds={data.participants.map((p) => p.id)}
-            />
-            <button type="button" className="primary-btn" onClick={handleAdd} disabled={!selectedToAdd.length}>
-              Добавить
-            </button>
-
-            <h4>Заявки на вступление</h4>
-            <div className="list-scroll">
-              {data.joinRequests?.length ? (
-                data.joinRequests.map((req) => (
-                  <div key={req.id} className="participant-row">
-                    <div>
-                      <div className="participant-name">{req.displayName || req.username}</div>
-                      <div className="participant-meta">{formatRole(req.role)} · {req.email}</div>
-                    </div>
-                    <div className="btn-row">
-                      <button type="button" className="primary-btn" onClick={() => handleApprove(req)}>
-                        Принять
-                      </button>
-                      <button type="button" className="secondary-btn" onClick={() => handleReject(req)}>
-                        Отклонить
-                      </button>
-                    </div>
+              <div className="group-manage-column">
+                <div className="group-manage-card">
+                  <h4>Участники</h4>
+                  <div className="list-scroll">
+                    {data.participants.map((participant) => {
+                      const isCreator = participant.id === data.createdBy;
+                      const isAdmin = (data.admins || []).includes(participant.id);
+                      const canRemove = !isCreator && !isAdmin;
+                      return (
+                        <div key={participant.id} className="participant-row">
+                          <div>
+                            <div className="participant-name">{participant.displayName || participant.username}</div>
+                            <div className="participant-meta">
+                              {formatRole(participant.role)} · {participant.department || 'Отдел не указан'} · {participant.email}
+                            </div>
+                          </div>
+                          {canRemove && (
+                            <button type="button" className="secondary-btn" onClick={() => handleRemove(participant)}>
+                              Удалить
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {!data.participants.length && <p className="muted">Нет участников</p>}
                   </div>
-                ))
-              ) : (
-                <p className="muted">Заявок нет</p>
-              )}
+                </div>
+
+                <div className="group-manage-card">
+                  <h4>Добавить участника</h4>
+                  <UserPicker
+                    mode="single"
+                    users={users}
+                    selectedIds={selectedToAdd}
+                    onChange={(ids) => setSelectedToAdd(ids)}
+                    excludeIds={data.participants.map((p) => p.id)}
+                  />
+                  <button type="button" className="primary-btn" onClick={handleAdd} disabled={!selectedToAdd.length}>
+                    Добавить
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { ROLE_OPTIONS } from '../utils/roleLabels';
 
-const RegisterForm = ({ onSubmit, loading, error }) => {
+const RegisterForm = ({ onSubmit, loading, error, successMessage }) => {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -53,6 +53,7 @@ const RegisterForm = ({ onSubmit, loading, error }) => {
         Должность
         <input type="text" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} placeholder="Кардиолог, Регистратор" />
       </label>
+      {successMessage && <div className="form-success">{successMessage}</div>}
       {error && <div className="form-error">{error}</div>}
       <button type="submit" className="primary-btn" disabled={loading}>
         {loading ? 'Регистрируем...' : 'Зарегистрироваться'}
@@ -65,11 +66,13 @@ RegisterForm.propTypes = {
   onSubmit: PropTypes.func.isRequired,
   loading: PropTypes.bool,
   error: PropTypes.string,
+  successMessage: PropTypes.string,
 };
 
 RegisterForm.defaultProps = {
   loading: false,
   error: null,
+  successMessage: '',
 };
 
 export default RegisterForm;

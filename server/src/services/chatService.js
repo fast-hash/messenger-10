@@ -392,6 +392,15 @@ const groupRemoveParticipant = async ({ chatId, adminId, userId }) => {
     throw error;
   }
 
+  const isCreator = chat.createdBy && chat.createdBy.toString() === participantObjectId.toString();
+  const isAdmin = (chat.admins || []).some((admin) => admin.toString() === participantObjectId.toString());
+
+  if (isCreator || isAdmin) {
+    const error = new Error('Нельзя удалить администратора или создателя группы');
+    error.status = 400;
+    throw error;
+  }
+
   chat.participants = (chat.participants || []).filter((p) => {
     if (p instanceof Types.ObjectId) return !p.equals(participantObjectId);
     if (p._id) return !p._id.equals(participantObjectId);

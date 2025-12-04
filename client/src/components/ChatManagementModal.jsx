@@ -40,6 +40,15 @@ const ChatManagementModal = ({
   directChats,
   directLoading,
   onClearBlocks,
+  adminUsers,
+  adminUsersLoading,
+  registrationRequests,
+  registrationLoading,
+  onDisableUser,
+  onEnableUser,
+  onApproveRequest,
+  onRejectRequest,
+  notice,
 }) => {
   const [tab, setTab] = useState('groups');
 
@@ -64,11 +73,26 @@ const ChatManagementModal = ({
             >
               Личные чаты
             </button>
+            <button
+              type="button"
+              className={`secondary-btn ${tab === 'users' ? 'active' : ''}`}
+              onClick={() => setTab('users')}
+            >
+              Пользователи
+            </button>
+            <button
+              type="button"
+              className={`secondary-btn ${tab === 'requests' ? 'active' : ''}`}
+              onClick={() => setTab('requests')}
+            >
+              Заявки на регистрацию
+            </button>
           </div>
           <button type="button" className="secondary-btn" onClick={onClose}>
             Закрыть
           </button>
         </div>
+        {notice && <div className="notice-banner">{notice}</div>}
         {tab === 'groups' && (
           <div className="modal-body-scroll">
             {groupsLoading && <p className="muted">Загрузка групп...</p>}
@@ -132,6 +156,67 @@ const ChatManagementModal = ({
             )}
           </div>
         )}
+
+        {tab === 'users' && (
+          <div className="modal-body-scroll">
+            {adminUsersLoading && <p className="muted">Загрузка пользователей...</p>}
+            {!adminUsersLoading && (
+              <div className="group-list group-list-scroll">
+                {adminUsers.map((item) => (
+                  <div key={item.id} className="group-card">
+                    <div>
+                      <div className="group-card__title">{item.displayName || item.username}</div>
+                      <div className="group-card__meta">{item.email}</div>
+                      <div className="group-card__meta">{formatRole(item.role)} · {item.department || 'Отдел не указан'}</div>
+                      <div className="group-card__meta">Статус: {item.accessDisabled ? 'Доступ ограничен' : 'Активен'}</div>
+                    </div>
+                    <div className="btn-row">
+                      {item.accessDisabled ? (
+                        <button type="button" className="primary-btn" onClick={() => onEnableUser(item)}>
+                          Вернуть доступ
+                        </button>
+                      ) : (
+                        <button type="button" className="secondary-btn" onClick={() => onDisableUser(item)}>
+                          Отключить от системы
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {!adminUsers.length && <p className="muted">Пользователи не найдены</p>}
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === 'requests' && (
+          <div className="modal-body-scroll">
+            {registrationLoading && <p className="muted">Загрузка заявок...</p>}
+            {!registrationLoading && (
+              <div className="group-list group-list-scroll">
+                {registrationRequests.map((req) => (
+                  <div key={req.id} className="group-card">
+                    <div>
+                      <div className="group-card__title">{req.displayName || req.username}</div>
+                      <div className="group-card__meta">{formatRole(req.role)} · {req.department || 'Отдел не указан'}</div>
+                      <div className="group-card__meta">{req.email}</div>
+                      <div className="group-card__meta">Отправлена: {new Date(req.createdAt).toLocaleString()}</div>
+                    </div>
+                    <div className="btn-row">
+                      <button type="button" className="primary-btn" onClick={() => onApproveRequest(req)}>
+                        Принять
+                      </button>
+                      <button type="button" className="secondary-btn" onClick={() => onRejectRequest(req)}>
+                        Отклонить
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {!registrationRequests.length && <p className="muted">Заявок нет</p>}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -147,6 +232,15 @@ ChatManagementModal.propTypes = {
   directChats: PropTypes.arrayOf(PropTypes.object),
   directLoading: PropTypes.bool,
   onClearBlocks: PropTypes.func,
+  adminUsers: PropTypes.arrayOf(PropTypes.object),
+  adminUsersLoading: PropTypes.bool,
+  registrationRequests: PropTypes.arrayOf(PropTypes.object),
+  registrationLoading: PropTypes.bool,
+  onDisableUser: PropTypes.func,
+  onEnableUser: PropTypes.func,
+  onApproveRequest: PropTypes.func,
+  onRejectRequest: PropTypes.func,
+  notice: PropTypes.string,
 };
 
 ChatManagementModal.defaultProps = {
@@ -157,6 +251,15 @@ ChatManagementModal.defaultProps = {
   directChats: [],
   directLoading: false,
   onClearBlocks: () => {},
+  adminUsers: [],
+  adminUsersLoading: false,
+  registrationRequests: [],
+  registrationLoading: false,
+  onDisableUser: () => {},
+  onEnableUser: () => {},
+  onApproveRequest: () => {},
+  onRejectRequest: () => {},
+  notice: '',
 };
 
 export default ChatManagementModal;

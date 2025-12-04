@@ -5,6 +5,8 @@ const SALT_ROUNDS = 10;
 
 const ALLOWED_ROLES = ['doctor', 'nurse', 'admin', 'staff'];
 
+const normalizeRole = (role) => (ALLOWED_ROLES.includes(role) ? role : 'staff');
+
 const toUserDto = (userDoc) => ({
   id: userDoc._id.toString(),
   username: userDoc.username,
@@ -16,18 +18,44 @@ const toUserDto = (userDoc) => ({
   dndEnabled: userDoc.dndEnabled || false,
   dndUntil: userDoc.dndUntil || null,
   createdAt: userDoc.createdAt,
+  accessDisabled: userDoc.accessDisabled || false,
+  accessDisabledAt: userDoc.accessDisabledAt || null,
+  accessDisabledBy: userDoc.accessDisabledBy ? userDoc.accessDisabledBy.toString() : null,
+  tokenVersion: userDoc.tokenVersion || 0,
 });
 
-const registerUser = async ({
+const ensureUniqueUser = async ({ username, email }) => {
+  const normalizedEmail = (email || '').toLowerCase();
+
+  const [existingEmail, existingUsername] = await Promise.all([
+    User.findOne({ email: normalizedEmail }),
+    User.findOne({ username }),
+  ]);
+
+  if (existingEmail) {
+    const error = new Error('Email is already registered');
+    error.status = 409;
+    throw error;
+  }
+
+  if (existingUsername) {
+    const error = new Error('Username is already taken');
+    error.status = 409;
+    throw error;
+  }
+};
+
+const createUser = async ({
   username,
   email,
   password,
+  passwordHash,
   displayName,
   role,
   department,
   jobTitle,
 }) => {
-  if (!username || !email || !password) {
+  if (!username || !email || (!password && !passwordHash)) {
     const error = new Error('Username, email, and password are required');
     error.status = 400;
     throw error;
@@ -35,30 +63,16 @@ const registerUser = async ({
 
   const normalizedEmail = email.toLowerCase();
 
-  const existingEmail = await User.findOne({ email: normalizedEmail });
-  if (existingEmail) {
-    const error = new Error('Email is already registered');
-    error.status = 409;
-    throw error;
-  }
+  await ensureUniqueUser({ username, email: normalizedEmail });
 
-  const existingUsername = await User.findOne({ username });
-  if (existingUsername) {
-    const error = new Error('Username is already taken');
-    error.status = 409;
-    throw error;
-  }
-
-  const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-
-  const normalizedRole = ALLOWED_ROLES.includes(role) ? role : 'staff';
+  const hash = passwordHash || (await bcrypt.hash(password, SALT_ROUNDS));
 
   const user = await User.create({
     username,
     email: normalizedEmail,
-    passwordHash,
+    passwordHash: hash,
     displayName: displayName || username,
-    role: normalizedRole,
+    role: normalizeRole(role),
     department: department || null,
     jobTitle: jobTitle || null,
   });
@@ -86,6 +100,13 @@ const authenticateUser = async ({ email, password }) => {
   if (!passwordMatches) {
     const error = new Error('Invalid credentials');
     error.status = 401;
+    throw error;
+  }
+
+  if (user.accessDisabled) {
+    const error = new Error('Доступ ограничен администратором');
+    error.status = 403;
+    error.code = 'ACCESS_DISABLED';
     throw error;
   }
 
@@ -156,10 +177,53 @@ const updatePreferences = async ({ userId, dndEnabled, dndUntil }) => {
   return toUserDto(user);
 };
 
+const listAllUsers = async () => {
+  const users = await User.find().sort({ createdAt: -1 });
+  return users.map(toUserDto);
+};
+
+const disableUser = async ({ targetUserId, adminId }) => {
+  const user = await User.findById(targetUserId);
+  if (!user) {
+    const error = new Error('User not found');
+    error.status = 404;
+    throw error;
+  }
+
+  user.accessDisabled = true;
+  user.accessDisabledAt = new Date();
+  user.accessDisabledBy = adminId;
+  user.tokenVersion = (user.tokenVersion || 0) + 1;
+
+  await user.save();
+  return toUserDto(user);
+};
+
+const enableUser = async ({ targetUserId }) => {
+  const user = await User.findById(targetUserId);
+  if (!user) {
+    const error = new Error('User not found');
+    error.status = 404;
+    throw error;
+  }
+
+  user.accessDisabled = false;
+  user.accessDisabledAt = null;
+  user.accessDisabledBy = null;
+
+  await user.save();
+  return toUserDto(user);
+};
+
 module.exports = {
-  registerUser,
+  createUser,
   authenticateUser,
   searchUsers,
   getUserById,
   updatePreferences,
+  toUserDto,
+  ensureUniqueUser,
+  listAllUsers,
+  disableUser,
+  enableUser,
 };

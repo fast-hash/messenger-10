@@ -24,6 +24,14 @@ import {
 } from '../api/chatApi';
 import { searchUsers } from '../api/usersApi';
 import { formatRole } from '../utils/roleLabels';
+import {
+  listUsers as listUsersAdmin,
+  disableUser as disableUserAdmin,
+  enableUser as enableUserAdmin,
+  listRegistrationRequests,
+  approveRegistrationRequest,
+  rejectRegistrationRequest,
+} from '../api/adminApi';
 
 const ChatsPage = () => {
   const navigate = useNavigate();
@@ -71,6 +79,11 @@ const ChatsPage = () => {
   const [showManagement, setShowManagement] = useState(false);
   const [directChatsAdmin, setDirectChatsAdmin] = useState([]);
   const [directChatsLoading, setDirectChatsLoading] = useState(false);
+  const [adminUsers, setAdminUsers] = useState([]);
+  const [adminUsersLoading, setAdminUsersLoading] = useState(false);
+  const [registrationRequests, setRegistrationRequests] = useState([]);
+  const [registrationLoading, setRegistrationLoading] = useState(false);
+  const [managementNotice, setManagementNotice] = useState('');
 
   useEffect(() => {
     if (!user) {
@@ -100,6 +113,21 @@ const ChatsPage = () => {
       setCallSocket(null, null);
     }
   }, [socket, user?.id, setCallSocket]);
+
+  useEffect(() => {
+    if (!socket) return undefined;
+
+    const handleForceLogout = () => {
+      logout();
+      reset();
+      navigate('/login', { state: { accessDisabled: true } });
+    };
+
+    socket.on('auth:force_logout', handleForceLogout);
+    return () => {
+      socket.off('auth:force_logout', handleForceLogout);
+    };
+  }, [socket, logout, reset, navigate]);
 
   const selectedChat = useMemo(
     () => chats.find((chat) => chat.id === selectedChatId) || null,
@@ -146,6 +174,42 @@ const ChatsPage = () => {
       setGroups([]);
     } finally {
       setGroupsLoading(false);
+    }
+  };
+
+  const loadDirectChatsAdminList = async () => {
+    setDirectChatsLoading(true);
+    try {
+      const { chats: directList } = await listDirectChatsAdmin();
+      setDirectChatsAdmin(directList);
+    } catch (error) {
+      setDirectChatsAdmin([]);
+    } finally {
+      setDirectChatsLoading(false);
+    }
+  };
+
+  const loadAdminUsers = async () => {
+    setAdminUsersLoading(true);
+    try {
+      const { users: fetched } = await listUsersAdmin();
+      setAdminUsers(fetched);
+    } catch (error) {
+      setAdminUsers([]);
+    } finally {
+      setAdminUsersLoading(false);
+    }
+  };
+
+  const loadRegistrationRequestsList = async () => {
+    setRegistrationLoading(true);
+    try {
+      const { requests } = await listRegistrationRequests();
+      setRegistrationRequests(requests);
+    } catch (error) {
+      setRegistrationRequests([]);
+    } finally {
+      setRegistrationLoading(false);
     }
   };
 
@@ -252,18 +316,70 @@ const ChatsPage = () => {
     }
   };
 
+  const handleDisableUserAdmin = (targetUser) => {
+    const name = targetUser.displayName || targetUser.username || targetUser.email;
+    openConfirm(`Вы действительно хотите ограничить доступ пользователю ${name}?`, async () => {
+      try {
+        await disableUserAdmin(targetUser.id);
+        await loadAdminUsers();
+        setManagementNotice(`Доступ пользователя ${name} ограничен`);
+      } catch (error) {
+        // eslint-disable-next-line no-alert
+        alert('Не удалось ограничить доступ пользователю');
+      }
+    });
+  };
+
+  const handleEnableUserAdmin = (targetUser) => {
+    const name = targetUser.displayName || targetUser.username || targetUser.email;
+    openConfirm(`Вы действительно хотите вернуть доступ пользователю ${name}?`, async () => {
+      try {
+        await enableUserAdmin(targetUser.id);
+        await loadAdminUsers();
+        setManagementNotice(`Доступ пользователя ${name} восстановлен`);
+      } catch (error) {
+        // eslint-disable-next-line no-alert
+        alert('Не удалось вернуть доступ пользователю');
+      }
+    });
+  };
+
+  const handleApproveRegistration = (request) => {
+    const name = request.displayName || request.username || request.email;
+    openConfirm(`Принять заявку ${name}?`, async () => {
+      try {
+        await approveRegistrationRequest(request.id);
+        await loadRegistrationRequestsList();
+        await loadAdminUsers();
+        setManagementNotice(`Заявка ${name} принята`);
+      } catch (error) {
+        // eslint-disable-next-line no-alert
+        alert('Не удалось принять заявку');
+      }
+    });
+  };
+
+  const handleRejectRegistration = (request) => {
+    const name = request.displayName || request.username || request.email;
+    openConfirm(`Отклонить заявку ${name}?`, async () => {
+      try {
+        await rejectRegistrationRequest(request.id);
+        await loadRegistrationRequestsList();
+        setManagementNotice(`Заявка ${name} отклонена`);
+      } catch (error) {
+        // eslint-disable-next-line no-alert
+        alert('Не удалось отклонить заявку');
+      }
+    });
+  };
+
   const openManagementModal = async () => {
     setShowManagement(true);
+    setManagementNotice('');
     await refreshGroups();
-    setDirectChatsLoading(true);
-    try {
-      const { chats: directList } = await listDirectChatsAdmin();
-      setDirectChatsAdmin(directList);
-    } catch (error) {
-      setDirectChatsAdmin([]);
-    } finally {
-      setDirectChatsLoading(false);
-    }
+    loadDirectChatsAdminList();
+    loadAdminUsers();
+    loadRegistrationRequestsList();
   };
 
   const handleAdminClearBlocks = async (chatId) => {
@@ -470,7 +586,10 @@ const ChatsPage = () => {
 
       <ChatManagementModal
         isOpen={showManagement}
-        onClose={() => setShowManagement(false)}
+        onClose={() => {
+          setShowManagement(false);
+          setManagementNotice('');
+        }}
         groups={groups}
         groupsLoading={groupsLoading}
         onOpenGroup={(chatId) => {
@@ -484,6 +603,15 @@ const ChatsPage = () => {
         directChats={directChatsAdmin}
         directLoading={directChatsLoading}
         onClearBlocks={handleAdminClearBlocks}
+        adminUsers={adminUsers}
+        adminUsersLoading={adminUsersLoading}
+        registrationRequests={registrationRequests}
+        registrationLoading={registrationLoading}
+        onDisableUser={handleDisableUserAdmin}
+        onEnableUser={handleEnableUserAdmin}
+        onApproveRequest={handleApproveRegistration}
+        onRejectRequest={handleRejectRegistration}
+        notice={managementNotice}
       />
 
       {confirmState && (

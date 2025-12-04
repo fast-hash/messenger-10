@@ -584,6 +584,11 @@ button:disabled {
   font-size: 14px;
 }
 
+.form-success {
+  color: #16a34a;
+  font-size: 14px;
+}
+
 .auth-switch {
   margin-top: 10px;
   color: #4b5563;
@@ -648,6 +653,15 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.notice-banner {
+  background: #ecfeff;
+  border: 1px solid #bae6fd;
+  color: #0ea5e9;
+  padding: 10px 12px;
+  border-radius: 10px;
+  margin: 0 0 8px;
 }
 
 .choice-buttons {
@@ -921,6 +935,29 @@ button:disabled {
   align-items: center;
 }
 
+.group-manage-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.group-manage-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.group-manage-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .group-card__title {
   font-weight: 700;
 }
@@ -928,6 +965,12 @@ button:disabled {
 .group-card__meta {
   font-size: 13px;
   color: #4b5563;
+}
+
+@media (max-width: 1024px) {
+  .group-manage-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .user-list-scroll {

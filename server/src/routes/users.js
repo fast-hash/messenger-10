@@ -10,7 +10,8 @@ const config = require('../config/env');
 const router = express.Router();
 
 const setAuthCookie = (res, payload) => {
-  const token = jwt.sign(payload, config.jwtSecret, { expiresIn: '7d' });
+  const tokenPayload = { ...payload, tokenVersion: payload.tokenVersion || 0 };
+  const token = jwt.sign(tokenPayload, config.jwtSecret, { expiresIn: '7d' });
   res.cookie('access_token', token, {
     httpOnly: true,
     secure: config.cookieSecure,
@@ -39,7 +40,7 @@ router.patch(
       dndUntil,
     });
 
-    setAuthCookie(res, user);
+    setAuthCookie(res, { ...user, tokenVersion: user.tokenVersion || 0 });
 
     const io = getIo && getIo();
     if (io) {

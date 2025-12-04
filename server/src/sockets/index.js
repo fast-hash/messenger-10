@@ -2,6 +2,7 @@ const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const config = require('../config/env');
 const Chat = require('../models/Chat');
+const User = require('../models/User');
 const messageService = require('../services/messageService');
 
 const onlineUsers = new Map();
@@ -56,7 +57,7 @@ const setupSockets = (httpServer) => {
 
   ioInstance = io;
 
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     try {
       const tokenFromQuery = socket.handshake.query && socket.handshake.query.token;
       const tokenFromAuth = socket.handshake.auth && socket.handshake.auth.token;
@@ -68,16 +69,28 @@ const setupSockets = (httpServer) => {
       }
 
       const payload = jwt.verify(token, config.jwtSecret);
+      const user = await User.findById(payload.id);
+
+      if (!user || user.accessDisabled) {
+        return next(new Error('Authentication failed'));
+      }
+
+      const currentVersion = user.tokenVersion || 0;
+      const tokenVersion = typeof payload.tokenVersion === 'number' ? payload.tokenVersion : 0;
+      if (tokenVersion !== currentVersion) {
+        return next(new Error('Authentication failed'));
+      }
+
       socket.user = {
-        id: payload.id,
-        email: payload.email,
-        username: payload.username,
-        displayName: payload.displayName,
-        role: payload.role,
-        department: payload.department,
-        jobTitle: payload.jobTitle,
-        dndEnabled: payload.dndEnabled || false,
-        dndUntil: payload.dndUntil || null,
+        id: user._id.toString(),
+        email: user.email,
+        username: user.username,
+        displayName: user.displayName,
+        role: user.role,
+        department: user.department,
+        jobTitle: user.jobTitle,
+        dndEnabled: user.dndEnabled || false,
+        dndUntil: user.dndUntil || null,
       };
       return next();
     } catch (error) {
@@ -404,3 +417,4 @@ const updatePresenceMeta = (userId, meta = {}) => {
 module.exports = setupSockets;
 module.exports.getIo = getIo;
 module.exports.updatePresenceMeta = updatePresenceMeta;
+module.exports.getUserRoom = getUserRoom;
