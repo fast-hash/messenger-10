@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const userSchema = new mongoose.Schema(
+const registrationRequestSchema = new mongoose.Schema(
   {
     username: {
       type: String,
@@ -21,9 +21,7 @@ const userSchema = new mongoose.Schema(
     },
     displayName: {
       type: String,
-      default: function defaultDisplayName() {
-        return this.username;
-      },
+      required: true,
       trim: true,
     },
     role: {
@@ -41,34 +39,9 @@ const userSchema = new mongoose.Schema(
       default: null,
       trim: true,
     },
-    dndEnabled: {
-      type: Boolean,
-      default: false,
-    },
-    dndUntil: {
-      type: Date,
-      default: null,
-    },
     createdAt: {
       type: Date,
       default: Date.now,
-    },
-    accessDisabled: {
-      type: Boolean,
-      default: false,
-    },
-    accessDisabledAt: {
-      type: Date,
-      default: null,
-    },
-    accessDisabledBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      default: null,
-    },
-    tokenVersion: {
-      type: Number,
-      default: 0,
     },
   },
   {
@@ -76,10 +49,10 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-userSchema.index({ email: 1 }, { unique: true });
-userSchema.index({ username: 1 }, { unique: true });
+registrationRequestSchema.index({ email: 1 }, { unique: true });
+registrationRequestSchema.index({ username: 1 }, { unique: true });
 
-userSchema.set('toJSON', {
+registrationRequestSchema.set('toJSON', {
   transform: (_, ret) => {
     ret.id = ret._id.toString();
     delete ret._id;
@@ -88,4 +61,4 @@ userSchema.set('toJSON', {
   },
 });
 
-module.exports = mongoose.model('User', userSchema);
+module.exports = mongoose.model('RegistrationRequest', registrationRequestSchema);

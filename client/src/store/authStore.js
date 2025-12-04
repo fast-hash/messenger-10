@@ -20,8 +20,8 @@ export const useAuthStore = create((set) => ({
     set({ user, dndEnabled: user.dndEnabled || false, dndUntil: user.dndUntil || null });
   },
   async register(payload) {
-    const { user } = await authApi.register(payload);
-    set({ user, dndEnabled: user.dndEnabled || false, dndUntil: user.dndUntil || null });
+    const data = await authApi.register(payload);
+    return data;
   },
   async logout() {
     await authApi.logout();
