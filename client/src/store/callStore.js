@@ -64,6 +64,8 @@ const formatReason = (reason) => {
 export const useCallStore = create((set, get) => ({
   socket: null,
   socketListeners: {},
+  socketConnected: false,
+  reconnectTimer: null,
   currentUserId: null,
   status: 'idle', // idle | incoming | outgoing | in-call
   callId: null,
@@ -79,14 +81,49 @@ export const useCallStore = create((set, get) => ({
   setSocket(socket, currentUserId) {
     const prevSocket = get().socket;
     const prevListeners = get().socketListeners || {};
+    const prevTimer = get().reconnectTimer;
     Object.entries(prevListeners).forEach(([event, handler]) => {
       prevSocket?.off(event, handler);
     });
 
+    if (prevTimer) {
+      clearTimeout(prevTimer);
+    }
+
     if (!socket) {
-      set({ socket: null, socketListeners: {}, currentUserId: null });
+      set({ socket: null, socketListeners: {}, currentUserId: null, socketConnected: false, reconnectTimer: null });
       return;
     }
+
+    const clearReconnectTimer = () => {
+      const timer = get().reconnectTimer;
+      if (timer) {
+        clearTimeout(timer);
+        set({ reconnectTimer: null });
+      }
+    };
+
+    const handleConnectionRestored = () => {
+      clearReconnectTimer();
+      const state = get();
+      const isConnectionError = state.error === 'Нет подключения к серверу для звонков.';
+      set({ socketConnected: true, error: isConnectionError ? null : state.error });
+    };
+
+    const handleConnectionIssue = (reason) => {
+      console.warn('Call socket connection issue', reason);
+      clearReconnectTimer();
+      const timer = setTimeout(() => {
+        if (!socket.connected) {
+          set({ error: 'Нет подключения к серверу для звонков.' });
+        }
+      }, 4000);
+      set({ socketConnected: false, reconnectTimer: timer });
+
+      if (get().status !== 'idle') {
+        get().resetCall('Звонок прерван: потеряно соединение.');
+      }
+    };
 
     const handleIncoming = ({ callId, chatId, fromUserId, fromName }) => {
       const state = get();
@@ -163,6 +200,15 @@ export const useCallStore = create((set, get) => ({
     socket.on('call:sdp-answer', handleAnswer);
     socket.on('call:ice', handleIce);
     socket.on('call:hangup', handleHangup);
+    socket.on('connect', handleConnectionRestored);
+    socket.on('reconnect', handleConnectionRestored);
+    socket.on('disconnect', handleConnectionIssue);
+    socket.on('connect_error', handleConnectionIssue);
+    socket.on('reconnect_attempt', () => set({ socketConnected: false }));
+
+    if (socket.connected) {
+      handleConnectionRestored();
+    }
 
     set({
       socket,
@@ -176,6 +222,11 @@ export const useCallStore = create((set, get) => ({
         'call:sdp-answer': handleAnswer,
         'call:ice': handleIce,
         'call:hangup': handleHangup,
+        connect: handleConnectionRestored,
+        reconnect: handleConnectionRestored,
+        disconnect: handleConnectionIssue,
+        connect_error: handleConnectionIssue,
+        reconnect_attempt: () => set({ socketConnected: false }),
       },
     });
   },
@@ -208,7 +259,7 @@ export const useCallStore = create((set, get) => ({
   async startCall(chat) {
     const state = get();
     const socket = state.socket;
-    if (!socket) {
+    if (!socket || !socket.connected) {
       set({ error: 'Нет подключения к серверу для звонков.' });
       return;
     }
