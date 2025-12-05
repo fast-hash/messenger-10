@@ -55,6 +55,7 @@ export const useChatStore = create((set, get) => ({
   messageMeta: {},
   typing: {},
   socket: null,
+  socketConnected: false,
   dndEnabled: false,
   dndUntil: null,
   pinnedByChat: {},
@@ -69,13 +70,42 @@ export const useChatStore = create((set, get) => ({
     return new Date(state.dndUntil).getTime() > Date.now();
   },
   connectSocket(currentUserId) {
-    if (get().socket) {
-      return;
+    const existing = get().socket;
+    if (existing) {
+      return existing;
     }
 
     const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:3000', {
       withCredentials: true,
     });
+
+    const rejoinAllChats = () => {
+      const { chats: currentChats } = get();
+      currentChats.forEach((chat) => {
+        if (!chat.removed) {
+          socket.emit('chats:join', { chatId: chat.id });
+        }
+      });
+    };
+
+    socket.on('connect', () => {
+      set({ socketConnected: true });
+      rejoinAllChats();
+    });
+
+    socket.on('reconnect', () => {
+      set({ socketConnected: true });
+      rejoinAllChats();
+    });
+
+    socket.on('disconnect', () => {
+      set({ socketConnected: false });
+    });
+
+    if (socket.connected) {
+      set({ socketConnected: true });
+      rejoinAllChats();
+    }
 
     socket.on('message:new', ({ message }) => {
       const state = get();
@@ -147,6 +177,7 @@ export const useChatStore = create((set, get) => ({
 
     socket.on('connect_error', (err) => {
       console.error('Socket connect error', err);
+      set({ socketConnected: false });
     });
 
     socket.on('chat:pinsUpdated', ({ chatId, pinnedMessageIds }) => {
@@ -166,6 +197,7 @@ export const useChatStore = create((set, get) => ({
     });
 
     set({ socket });
+    return socket;
   },
   setSocket(socket) {
     set({ socket });
@@ -182,6 +214,7 @@ export const useChatStore = create((set, get) => ({
       messageMeta: {},
       typing: {},
       socket: null,
+      socketConnected: false,
       pinnedByChat: {},
       auditLogs: {},
     });

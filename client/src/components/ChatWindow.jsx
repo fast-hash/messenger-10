@@ -66,7 +66,7 @@ const AttachmentCard = ({ attachment, getAttachmentUrl, formatSize }) => {
         <div className="attachment-card__size muted">{formatSize(attachment.size)}</div>
       </div>
 
-      <a className="link-btn" href={downloadUrl} target="_blank" rel="noreferrer">
+      <a className="link-btn" href={downloadUrl} target="_blank" rel="noreferrer" title="Открыть">
         Открыть
       </a>
     </div>
