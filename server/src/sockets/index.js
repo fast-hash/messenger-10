@@ -240,6 +240,13 @@ const setupSockets = (httpServer) => {
       }
     });
 
+    const isDndActive = (meta = {}) => {
+      if (!meta.dndEnabled) return false;
+      if (!meta.dndUntil) return true;
+      const until = new Date(meta.dndUntil);
+      return until.getTime() > Date.now();
+    };
+
     socket.on('call:init', async ({ chatId, toUserId }, callback) => {
       try {
         const chat = await Chat.findById(chatId);
@@ -270,7 +277,20 @@ const setupSockets = (httpServer) => {
           return callback && callback({ ok: false, reason: 'OFFLINE' });
         }
 
-        const isTargetDnd = targetPresence.dndEnabled && (!targetPresence.dndUntil || new Date(targetPresence.dndUntil) > new Date());
+        let isTargetDnd = isDndActive(targetPresence);
+        if (isTargetDnd) {
+          // Re-check against the latest user preferences in case the in-memory
+          // presence cache is stale after toggling DND without reconnecting.
+          const freshUser = await User.findById(targetId).select('dndEnabled dndUntil');
+          if (freshUser) {
+            const freshMeta = {
+              dndEnabled: freshUser.dndEnabled || false,
+              dndUntil: freshUser.dndUntil || null,
+            };
+            onlineUsers.set(targetId, { ...targetPresence, ...freshMeta });
+            isTargetDnd = isDndActive(freshMeta);
+          }
+        }
         if (isTargetDnd) {
           return callback && callback({ ok: false, reason: 'DND' });
         }
