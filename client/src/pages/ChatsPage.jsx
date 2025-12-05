@@ -62,6 +62,7 @@ const ChatsPage = () => {
     updateModeration,
     auditLogs,
     loadAudit,
+    socketConnected,
   } = useChatStore();
   const { setSocket: setCallSocket, startCall, status: callStatus } = useCallStore();
 
@@ -480,7 +481,7 @@ const ChatsPage = () => {
             onSend={(text, mentions, attachments) => sendMessage(selectedChatId, text, mentions, attachments)}
             onTypingStart={(chatId) => socket?.emit('typing:start', { chatId })}
             onTypingStop={(chatId) => socket?.emit('typing:stop', { chatId })}
-            socketConnected={!!socket}
+            socketConnected={socketConnected}
             callStatus={callStatus}
             onStartCall={() => startCall(selectedChat)}
             onBlock={handleBlockChat}

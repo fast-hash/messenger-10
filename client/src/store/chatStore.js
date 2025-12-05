@@ -55,6 +55,7 @@ export const useChatStore = create((set, get) => ({
   messageMeta: {},
   typing: {},
   socket: null,
+  socketConnected: false,
   dndEnabled: false,
   dndUntil: null,
   pinnedByChat: {},
@@ -69,13 +70,58 @@ export const useChatStore = create((set, get) => ({
     return new Date(state.dndUntil).getTime() > Date.now();
   },
   connectSocket(currentUserId) {
-    if (get().socket) {
-      return;
+    const existing = get().socket;
+    if (existing) {
+      return existing;
     }
 
-    const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:3000', {
+    const apiUrl = import.meta.env.VITE_API_URL || window.location.origin || 'http://localhost:3000';
+    const socketBase = import.meta.env.VITE_SOCKET_URL || apiUrl;
+    let socketOrigin = socketBase;
+    try {
+      const parsed = new URL(socketBase, window.location.origin);
+      socketOrigin = `${parsed.protocol}//${parsed.host}`;
+    } catch (error) {
+      console.warn('Invalid socket base URL, falling back to raw value', error);
+    }
+
+    const socketPath = import.meta.env.VITE_SOCKET_PATH || '/socket.io';
+
+    const socket = io(socketOrigin, {
+      path: socketPath,
       withCredentials: true,
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: Infinity,
     });
+
+    const rejoinAllChats = () => {
+      const { chats: currentChats } = get();
+      currentChats.forEach((chat) => {
+        if (!chat.removed) {
+          socket.emit('chats:join', { chatId: chat.id });
+        }
+      });
+    };
+
+    socket.on('connect', () => {
+      set({ socketConnected: true });
+      rejoinAllChats();
+    });
+
+    socket.on('reconnect', () => {
+      set({ socketConnected: true });
+      rejoinAllChats();
+    });
+
+    socket.on('disconnect', () => {
+      set({ socketConnected: false });
+    });
+
+    if (socket.connected) {
+      set({ socketConnected: true });
+      rejoinAllChats();
+    }
 
     socket.on('message:new', ({ message }) => {
       const state = get();
@@ -145,8 +191,20 @@ export const useChatStore = create((set, get) => ({
       get().setTyping(chatId, userId, false);
     });
 
-    socket.on('connect_error', (err) => {
+    socket.on('connect_error', async (err) => {
       console.error('Socket connect error', err);
+      set({ socketConnected: false });
+
+      if (err?.message === 'Authentication failed' || err?.message === 'Authentication required') {
+        try {
+          const { useAuthStore } = await import('./authStore');
+          const { logout } = useAuthStore.getState();
+          await logout();
+          get().reset();
+        } catch (e) {
+          // ignore logout failures; the original connection error is already surfaced
+        }
+      }
     });
 
     socket.on('chat:pinsUpdated', ({ chatId, pinnedMessageIds }) => {
@@ -166,6 +224,7 @@ export const useChatStore = create((set, get) => ({
     });
 
     set({ socket });
+    return socket;
   },
   setSocket(socket) {
     set({ socket });
@@ -182,6 +241,7 @@ export const useChatStore = create((set, get) => ({
       messageMeta: {},
       typing: {},
       socket: null,
+      socketConnected: false,
       pinnedByChat: {},
       auditLogs: {},
     });
