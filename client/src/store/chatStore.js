@@ -75,8 +75,15 @@ export const useChatStore = create((set, get) => ({
       return existing;
     }
 
-    const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:3000', {
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const socketBase = import.meta.env.VITE_SOCKET_URL || apiUrl;
+    const socketUrl = socketBase.replace(/\/api\/?$/, '');
+
+    const socket = io(socketUrl, {
       withCredentials: true,
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: Infinity,
     });
 
     const rejoinAllChats = () => {
