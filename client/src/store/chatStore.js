@@ -5,6 +5,11 @@ import * as messagesApi from '../api/messagesApi';
 import { playIncomingSound, showBrowserNotification } from '../utils/notifications';
 
 const mapChat = (chat, currentUserId) => {
+  const normalizeId = (value) => {
+    if (!value) return value;
+    return typeof value === 'string' ? value : value.toString?.() ?? value;
+  };
+
   const base = {
     ...chat,
     notificationsEnabled: chat.notificationsEnabled ?? true,
@@ -25,10 +30,20 @@ const mapChat = (chat, currentUserId) => {
     };
   }
 
-  const otherUser = chat.participants.find((participant) => participant.id !== currentUserId) || chat.participants[0];
+  const currentId = normalizeId(currentUserId);
+  const otherUserRaw =
+    chat.participants.find(
+      (participant) => normalizeId(participant.id || participant._id || participant) !== currentId
+    ) || chat.participants[0];
+  const normalizedOtherUser = otherUserRaw
+    ? {
+        ...otherUserRaw,
+        id: normalizeId(otherUserRaw.id || otherUserRaw._id || otherUserRaw),
+      }
+    : null;
   return {
     ...base,
-    otherUser,
+    otherUser: normalizedOtherUser,
     isOnline: false,
   };
 };
@@ -340,14 +355,21 @@ export const useChatStore = create((set, get) => ({
     }));
   },
   updateUserPresence(userId, isOnline, dndEnabled, dndUntil) {
+    const targetId = userId?.toString?.() || userId;
     set((state) => ({
       chats: state.chats.map((chat) =>
-        chat.otherUser && chat.otherUser.id === userId
+        (() => {
+          if (!chat.otherUser) return false;
+          const otherId = chat.otherUser.id || chat.otherUser._id || chat.otherUser;
+          const otherIdStr = otherId?.toString?.() || otherId;
+          return otherIdStr === targetId;
+        })()
           ? {
               ...chat,
               isOnline: typeof isOnline === 'boolean' ? isOnline : chat.isOnline,
               otherUser: {
                 ...chat.otherUser,
+                id: chat.otherUser.id || chat.otherUser._id || chat.otherUser,
                 dndEnabled:
                   typeof dndEnabled === 'boolean' ? dndEnabled : chat.otherUser?.dndEnabled || false,
                 dndUntil: typeof dndUntil !== 'undefined' ? dndUntil : chat.otherUser?.dndUntil || null,
