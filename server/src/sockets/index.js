@@ -48,11 +48,16 @@ const parseCookies = (cookieHeader) => {
 let ioInstance = null;
 
 const setupSockets = (httpServer) => {
+  const allowedOrigins = config.corsOrigin && config.corsOrigin.length ? config.corsOrigin : true;
+
   const io = new Server(httpServer, {
     cors: {
-      origin: config.corsOrigin,
+      origin: allowedOrigins,
       credentials: true,
     },
+    path: config.socketPath,
+    pingTimeout: 45000,
+    pingInterval: 20000,
   });
 
   ioInstance = io;
