@@ -75,11 +75,20 @@ export const useChatStore = create((set, get) => ({
       return existing;
     }
 
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const apiUrl = import.meta.env.VITE_API_URL || window.location.origin || 'http://localhost:3000';
     const socketBase = import.meta.env.VITE_SOCKET_URL || apiUrl;
-    const socketUrl = socketBase.replace(/\/api\/?$/, '');
+    let socketOrigin = socketBase;
+    try {
+      const parsed = new URL(socketBase, window.location.origin);
+      socketOrigin = `${parsed.protocol}//${parsed.host}`;
+    } catch (error) {
+      console.warn('Invalid socket base URL, falling back to raw value', error);
+    }
 
-    const socket = io(socketUrl, {
+    const socketPath = import.meta.env.VITE_SOCKET_PATH || '/socket.io';
+
+    const socket = io(socketOrigin, {
+      path: socketPath,
       withCredentials: true,
       transports: ['websocket', 'polling'],
       reconnection: true,
