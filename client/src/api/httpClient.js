@@ -10,4 +10,21 @@ const httpClient = axios.create({
   },
 });
 
+httpClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error?.response?.status === 401) {
+      try {
+        const { useAuthStore } = await import('../store/authStore');
+        const { logout } = useAuthStore.getState();
+        await logout();
+      } catch (e) {
+        // ignore interceptor failures to avoid masking original error
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+
 export default httpClient;

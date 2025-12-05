@@ -191,9 +191,20 @@ export const useChatStore = create((set, get) => ({
       get().setTyping(chatId, userId, false);
     });
 
-    socket.on('connect_error', (err) => {
+    socket.on('connect_error', async (err) => {
       console.error('Socket connect error', err);
       set({ socketConnected: false });
+
+      if (err?.message === 'Authentication failed' || err?.message === 'Authentication required') {
+        try {
+          const { useAuthStore } = await import('./authStore');
+          const { logout } = useAuthStore.getState();
+          await logout();
+          get().reset();
+        } catch (e) {
+          // ignore logout failures; the original connection error is already surfaced
+        }
+      }
     });
 
     socket.on('chat:pinsUpdated', ({ chatId, pinnedMessageIds }) => {
