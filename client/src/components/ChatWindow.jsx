@@ -67,7 +67,7 @@ const AttachmentCard = ({ attachment, getAttachmentUrl, formatSize }) => {
       </div>
 
       <a className="link-btn" href={downloadUrl} target="_blank" rel="noreferrer">
-        Открыть/Скачать
+        Открыть
       </a>
     </div>
   );
